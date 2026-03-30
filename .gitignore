@@ -1,0 +1,12 @@
+# Environment variables / API keys
+.env
+.env.*
+*.env
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
