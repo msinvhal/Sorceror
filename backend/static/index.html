@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sorceror</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #a78bfa;
+      --purple-dark: #7c3aed;
+      --purple-glow: rgba(167, 139, 250, 0.4);
+      --bg: #07070f;
+      --card-bg: rgba(255,255,255,0.04);
+      --card-border: rgba(167, 139, 250, 0.15);
+      --text: #f0eeff;
+      --muted: #6b7280;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Stars background ── */
+    #stars-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Radial glow behind hero ── */
+    .hero-glow {
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse at center, rgba(124,58,237,0.18) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 72px 24px 56px;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .orb {
+      position: relative;
+      width: 80px; height: 80px;
+    }
+    .orb-inner {
+      width: 80px; height: 80px;
+      background: radial-gradient(circle at 35% 35%, #c4b5fd, #7c3aed 60%, #3b0764);
+      border-radius: 50%;
+      box-shadow: 0 0 40px rgba(167,139,250,0.6), 0 0 80px rgba(124,58,237,0.3);
+      animation: pulse-orb 3s ease-in-out infinite;
+    }
+    .orb-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100px; height: 100px;
+      border: 1.5px solid rgba(167,139,250,0.3);
+      border-radius: 50%;
+      animation: spin-ring 8s linear infinite;
+    }
+    .orb-ring::before {
+      content: '';
+      position: absolute;
+      top: -4px; left: 50%;
+      width: 7px; height: 7px;
+      background: var(--purple);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--purple);
+    }
+    @keyframes pulse-orb {
+      0%, 100% { box-shadow: 0 0 40px rgba(167,139,250,0.6), 0 0 80px rgba(124,58,237,0.3); }
+      50% { box-shadow: 0 0 60px rgba(167,139,250,0.8), 0 0 120px rgba(124,58,237,0.5); }
+    }
+    @keyframes spin-ring {
+      from { transform: translate(-50%,-50%) rotate(0deg); }
+      to   { transform: translate(-50%,-50%) rotate(360deg); }
+    }
+
+    .hero h1 {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #e9d5ff 0%, #a78bfa 50%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      line-height: 1;
+    }
+
+    .runes {
+      font-size: 13px;
+      letter-spacing: 6px;
+      color: rgba(167,139,250,0.5);
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: #9ca3af;
+      margin-bottom: 36px;
+      margin-top: 4px;
+    }
+
+    /* ── Search ── */
+    .search-row {
+      display: flex;
+      gap: 8px;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+    .search-row input {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      border: 1.5px solid rgba(167,139,250,0.25);
+      border-radius: 12px;
+      outline: none;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-row input::placeholder { color: #4b5563; }
+    .search-row input:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+    }
+    .search-row button {
+      padding: 14px 24px;
+      font-size: 15px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #7c3aed);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+    }
+    .search-row button:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(124,58,237,0.55);
+    }
+    .search-row button:active { transform: translateY(0); }
+    .search-row button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Body ── */
+    .body { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── Loading ── */
+    .status-wrap { text-align: center; padding: 80px 0; }
+    .magic-loader {
+      width: 48px; height: 48px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+    .magic-loader::before, .magic-loader::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+    }
+    .magic-loader::before {
+      inset: 0;
+      border: 2px solid rgba(167,139,250,0.15);
+    }
+    .magic-loader::after {
+      inset: 0;
+      border: 2px solid transparent;
+      border-top-color: var(--purple);
+      border-right-color: rgba(167,139,250,0.4);
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-wrap p { color: #6b7280; font-size: 14px; letter-spacing: 0.3px; }
+
+    #error { text-align: center; color: #f87171; font-size: 15px; padding: 40px 0; }
+
+    /* ── Results ── */
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 0 2px;
+    }
+    .results-header span {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    .export-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(167,139,250,0.08);
+      color: var(--purple);
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .export-btn:hover { background: rgba(167,139,250,0.15); border-color: var(--purple); }
+
+    /* ── Cards ── */
+    .cards { display: flex; flex-direction: column; gap: 14px; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 22px 26px;
+      backdrop-filter: blur(12px);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px 24px;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(167,139,250,0.4), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .card:hover {
+      border-color: rgba(167,139,250,0.4);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.12);
+    }
+    .card:hover::before { opacity: 1; }
+
+    .card-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f0eeff;
+      margin-bottom: 4px;
+    }
+    .card-meta {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-meta .role { color: #d1d5db; font-weight: 500; }
+    .card-meta .sep { color: #374151; }
+    .card-meta .location {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: #9ca3af;
+    }
+
+    .card-about {
+      font-size: 13.5px;
+      color: #9ca3af;
+      line-height: 1.65;
+      margin-bottom: 12px;
+    }
+
+    .card-why {
+      font-size: 13px;
+      color: #c4b5fd;
+      line-height: 1.65;
+      padding: 10px 14px;
+      background: rgba(124,58,237,0.08);
+      border-left: 2px solid rgba(167,139,250,0.5);
+      border-radius: 0 8px 8px 0;
+    }
+    .card-why-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(167,139,250,0.6);
+      margin-bottom: 4px;
+    }
+
+    .card-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .score-badge {
+      font-size: 13px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 20px;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+    .score-high { background: rgba(22,163,74,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+    .score-mid  { background: rgba(202,138,4,0.15);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+    .score-low  { background: rgba(220,38,38,0.12);  color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+
+    .li-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #93c5fd;
+      text-decoration: none;
+      padding: 5px 12px;
+      border: 1px solid rgba(147,197,253,0.25);
+      border-radius: 7px;
+      background: rgba(147,197,253,0.05);
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .li-btn:hover { background: rgba(147,197,253,0.12); border-color: rgba(147,197,253,0.45); }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(167,139,250,0.2), transparent);
+      margin: 32px 0;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+<div class="hero-glow"></div>
+
+<div class="hero">
+  <div class="logo-wrap">
+    <div class="orb">
+      <div class="orb-inner"></div>
+      <div class="orb-ring"></div>
+    </div>
+    <div>
+      <h1>Sorceror</h1>
+      <div class="runes">✦ &nbsp; people intelligence &nbsp; ✦</div>
+    </div>
+  </div>
+  <p class="hero-sub">Describe who you're looking for. We'll conjure them.</p>
+  <div class="search-row">
+    <input id="query" type="text" placeholder='e.g. "AI founders in SF who went to UC Berkeley"' />
+    <button id="searchBtn" onclick="runSearch()">✦ &nbsp;Cast Search</button>
+  </div>
+</div>
+
+<div class="body">
+  <div id="status" class="hidden status-wrap">
+    <div class="magic-loader"></div>
+    <p>Scanning the web &amp; summoning candidates…</p>
+  </div>
+
+  <div id="error" class="hidden"></div>
+
+  <div id="results" class="hidden">
+    <div class="results-header">
+      <span id="resultCount"></span>
+      <button class="export-btn" onclick="downloadCSV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export CSV
+      </button>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+</div>
+
+<script>
+  // ── Starfield ──
+  (function() {
+    const canvas = document.getElementById('stars-canvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function initStars() {
+      stars = [];
+      const count = Math.floor((canvas.width * canvas.height) / 6000);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.2 + 0.2,
+          a: Math.random(),
+          speed: Math.random() * 0.003 + 0.001,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    let frame = 0;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame++;
+      stars.forEach(s => {
+        const alpha = s.a * (0.5 + 0.5 * Math.sin(frame * s.speed + s.phase));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 180, 255, ${alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(draw);
+    }
+
+    resize();
+    initStars();
+    draw();
+    window.addEventListener('resize', () => { resize(); initStars(); });
+  })();
+
+  // ── Search logic ──
+  const queryInput = document.getElementById('query');
+  queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+
+  function show(id) { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+  async function runSearch() {
+    const query = queryInput.value.trim();
+    if (!query) return;
+
+    document.getElementById('searchBtn').disabled = true;
+    hide('results'); hide('error');
+    show('status');
+
+    try {
+      const res = await fetch('/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderResults(data.candidates);
+    } catch (e) {
+      document.getElementById('error').textContent = 'Error: ' + e.message;
+      show('error');
+    } finally {
+      hide('status');
+      document.getElementById('searchBtn').disabled = false;
+    }
+  }
+
+  function renderResults(candidates) {
+    const container = document.getElementById('cards');
+    container.innerHTML = '';
+
+    if (!candidates.length) {
+      document.getElementById('error').textContent = 'No candidates found. Try a broader query.';
+      show('error');
+      return;
+    }
+
+    document.getElementById('resultCount').textContent =
+      `${candidates.length} candidate${candidates.length !== 1 ? 's' : ''} summoned`;
+
+    candidates.forEach(c => {
+      const score = c.fit_score;
+      const scoreClass = score >= 7 ? 'score-high' : score >= 5 ? 'score-mid' : 'score-low';
+
+      const liBtn = c.linkedin_url
+        ? `<a href="${c.linkedin_url}" target="_blank" rel="noreferrer" class="li-btn">
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+             LinkedIn
+           </a>`
+        : '';
+
+      const location = c.location
+        ? `<span class="sep">·</span>
+           <span class="location">
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+             ${c.location}
+           </span>`
+        : '';
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="card-left">
+          <div class="card-name">${c.first_name} ${c.last_name}</div>
+          <div class="card-meta">
+            <span class="role">${c.role || ''}${c.company ? ' · ' + c.company : ''}</span>
+            ${location}
+          </div>
+          ${c.about ? `<div class="card-about">${c.about}</div>` : ''}
+          ${c.why_relevant ? `
+            <div class="card-why">
+              <div class="card-why-label">Why relevant</div>
+              ${c.why_relevant}
+            </div>` : ''}
+        </div>
+        <div class="card-right">
+          <span class="score-badge ${scoreClass}">${score}/10</span>
+          ${liBtn}
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    show('results');
+  }
+
+  function downloadCSV() {
+    window.location.href = '/export';
+  }
+</script>
+</body>
+</html>
