@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import json
+import logging
 import os
 
 from google import genai
@@ -12,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -59,10 +63,13 @@ class SearchResponse(BaseModel):
 
 # ---------- LLM helpers ----------
 
-def llm(prompt: str) -> str:
+def llm(prompt: str, label: str = "LLM") -> str:
+    log.info("=== %s PROMPT ===\n%s\n=== END PROMPT ===", label, prompt)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(model=MODEL, contents=prompt)
-    return response.text.strip()
+    result = response.text.strip()
+    log.info("=== %s RESPONSE ===\n%s\n=== END RESPONSE ===", label, result)
+    return result
 
 
 def parse_json(text: str) -> any:
@@ -86,32 +93,35 @@ def parse_intent_and_queries(query: str) -> tuple[dict, list[str]]:
 
 Query: "{query}"
 
+Extract the key criteria from the query (company, role, school, location, etc.) and generate 5 highly targeted search queries to find real LinkedIn profiles matching ALL criteria.
+
 Return exactly this structure:
 {{
   "intent": {{
-    "role_keywords": ["founder", "co-founder", "CEO"],
-    "domain": ["AI", "machine learning", "artificial intelligence"],
-    "location": ["San Francisco", "Bay Area"],
-    "shared_context": ["UC Berkeley", "Berkeley", "Cal"]
+    "company": ["Mercor"],
+    "role_keywords": ["product manager", "program manager"],
+    "education": ["UC Berkeley", "University of California Berkeley"],
+    "location": []
   }},
   "search_queries": [
-    "site:linkedin.com/in UC Berkeley founder AI startup",
-    "site:linkedin.com/in Berkeley grad co-founder artificial intelligence",
-    "site:linkedin.com/in Berkeley alumni AI company founder CEO",
-    "UC Berkeley graduate founded AI startup Forbes 30 under 30",
-    "Berkeley alum AI startup founder TechCrunch"
+    "site:linkedin.com/in Mercor \\"product manager\\" \\"UC Berkeley\\"",
+    "site:linkedin.com/in Mercor \\"program manager\\" Berkeley",
+    "site:linkedin.com/in Mercor \\"UC Berkeley\\" PM",
+    "Mercor product manager UC Berkeley linkedin",
+    "Mercor program manager Berkeley alumni linkedin"
   ]
 }}
 
-For search_queries:
+Rules for search_queries:
 - Generate exactly 5 queries
-- At least 3 must use site:linkedin.com to find LinkedIn profiles
-- Focus on finding real, named individuals (not companies or articles)
-- Be specific to the search criteria in the query
-- For queries with site:linkedin.com, use keywords that appear in LinkedIn bio/headline
+- At least 3 must use site:linkedin.com/in
+- Each query must include ALL key criteria from the original query (company name, role, school, etc.)
+- Use exact company name and role terms as they would appear on a LinkedIn profile
+- Do NOT generate generic queries — every query must be specific to this exact search
 
 Return only valid JSON, no explanation."""
-    result = parse_json(llm(prompt))
+    result = parse_json(llm(prompt, "INTENT+QUERIES"))
+    log.info("Generated queries: %s", result.get("search_queries", []))
     return result.get("intent", {}), result.get("search_queries", [])
 
 
@@ -144,10 +154,13 @@ async def fetch_results(queries: list[str]) -> list[dict]:
             if r["link"] not in seen:
                 seen.add(r["link"])
                 flat.append(r)
-    # Prioritize LinkedIn profile results
     linkedin_results = [r for r in flat if r["is_linkedin_profile"]]
     other_results = [r for r in flat if not r["is_linkedin_profile"]]
-    return (linkedin_results + other_results)[:60]
+    combined = (linkedin_results + other_results)[:60]
+    log.info("Fetched %d total results (%d LinkedIn profiles, %d other)", len(combined), len(linkedin_results), len(other_results))
+    for r in combined:
+        log.info("  [%s] %s | %s", "LI" if r["is_linkedin_profile"] else "--", r["title"], r["link"])
+    return combined
 
 
 def extract_candidates(results: list[dict], query: str) -> list[dict]:
@@ -155,36 +168,37 @@ def extract_candidates(results: list[dict], query: str) -> list[dict]:
         f"[{i+1}] {'[LINKEDIN PROFILE] ' if r['is_linkedin_profile'] else ''}{r['title']} | {r['snippet']} | {r['link']}"
         for i, r in enumerate(results)
     )
-    prompt = f"""Extract real, named individuals from these search results who could match: "{query}"
+    prompt = f"""Extract real, named individuals from these search results who match: "{query}"
 
 Search results:
 {snippets}
 
-For every person you can identify by name, return a JSON array with:
+For each person, return a JSON array with:
 {{
   "first_name": "Jane",
   "last_name": "Smith",
-  "role": "Co-Founder & CEO",
-  "company": "Acme AI",
+  "role": "Product Manager",
+  "company": "Mercor",
   "linkedin_url": "https://linkedin.com/in/janesmith or null",
   "location": "San Francisco, CA",
-  "background_notes": "UC Berkeley grad, founded AI company in 2021, background in ML"
+  "background_notes": "UC Berkeley grad, PM at Mercor since 2022"
 }}
 
 Critical rules:
-- Be INCLUSIVE — extract anyone who might be relevant. Include partial matches.
+- Company is MANDATORY — skip anyone not at the target company
+- Beyond company, extract anyone who matches at least one other criteria (role OR education). The scoring step will rank them.
 - For results marked [LINKEDIN PROFILE]:
   * The link IS the linkedin_url — always set it
-  * The title format is usually "Full Name - Current Title at Current Company | LinkedIn" — parse this to get role and company
-  * The snippet often contains their bio, school, previous experience — extract all of it into background_notes
-- For non-LinkedIn results, still extract the person if named
+  * Parse "Full Name - Current Title at Current Company | LinkedIn" from the title
+  * Extract school, current role, company from the snippet into background_notes
 - If a person appears in multiple results, merge into one entry with the most complete info
-- Return up to 30 candidates
+- Return between 15 and 30 candidates — never fewer than 15 if the results contain that many people
 - Return only a valid JSON array, no explanation"""
-    raw = parse_json(llm(prompt))
+    raw = parse_json(llm(prompt, "EXTRACT_CANDIDATES"))
     if not isinstance(raw, list):
         return []
-    return raw[:30]
+    log.info("Extracted %d raw candidates", len(raw))
+    return raw[:30]  # enrich step will score and pick top 10
 
 
 def enrich_candidates(candidates: list[dict], query: str, intent: dict) -> list[dict]:
@@ -219,8 +233,10 @@ Scoring (1-10):
 about: one sentence — their current role + company + the most relevant background fact.
 why_relevant: 1-2 sentences — specific to why THEY match THIS query.
 
+IMPORTANT: You MUST return one entry for every single candidate in the list, in the same order. Do not skip any candidates.
+
 Return only a valid JSON array, no explanation."""
-    enrichments = parse_json(llm(prompt))
+    enrichments = parse_json(llm(prompt, "ENRICH_CANDIDATES"))
 
     for i, c in enumerate(candidates):
         if i < len(enrichments):
@@ -270,8 +286,9 @@ async def search(req: SearchRequest):
     # Step 4: score + enrich all candidates (1 LLM call)
     enriched = enrich_candidates(raw_candidates, req.query, intent)
 
-    # Sort by score, return top 15
-    ranked = sorted(enriched, key=lambda c: c.get("fit_score", 1), reverse=True)[:15]
+    # Sort by score, return top 10
+    ranked = sorted(enriched, key=lambda c: c.get("fit_score", 1), reverse=True)[:10]
+    log.info("Final ranked candidates: %s", [(f"{c.get('first_name')} {c.get('last_name')}", c.get('fit_score')) for c in ranked])
 
     candidates = []
     for c in ranked:
