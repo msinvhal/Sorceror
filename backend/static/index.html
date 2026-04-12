@@ -358,13 +358,254 @@
       margin: 32px 0;
     }
 
-    .hidden { display: none; }
+    .hidden { display: none !important; }
+
+    /* ── Profile button (top right) ── */
+    .profile-btn {
+      position: fixed;
+      top: 20px; right: 24px;
+      z-index: 100;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(167,139,250,0.08);
+      color: var(--purple);
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .profile-btn:hover { background: rgba(167,139,250,0.15); border-color: var(--purple); }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7,7,15,0.85);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal {
+      position: relative;
+      background: #0f0f1a;
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 24px 80px rgba(124,58,237,0.2);
+    }
+    .modal-close {
+      position: absolute;
+      top: 16px; right: 20px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .modal-close:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .modal h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f0eeff;
+      margin-bottom: 6px;
+    }
+    .modal-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: rgba(167,139,250,0.7);
+      margin-bottom: 6px;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 14px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 10px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: #4b5563; }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.12);
+    }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+      justify-content: flex-end;
+    }
+    .btn-primary {
+      padding: 11px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #7c3aed);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(124,58,237,0.35);
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-secondary {
+      padding: 11px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+    /* ── Accept button ── */
+    .accept-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4ade80;
+      padding: 5px 12px;
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 7px;
+      background: rgba(74,222,128,0.05);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .accept-btn:hover { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.45); }
+    .accept-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Message modal textarea ── */
+    .message-textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.65;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 10px;
+      outline: none;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+    .message-textarea:focus { border-color: var(--purple); }
+    .copy-confirm {
+      font-size: 12px;
+      color: #4ade80;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .copy-confirm.show { opacity: 1; }
+
+    /* ── localStorage notice ── */
+    .storage-notice {
+      font-size: 11px;
+      color: rgba(167,139,250,0.45);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
 
 <canvas id="stars-canvas"></canvas>
 <div class="hero-glow"></div>
+
+<!-- Edit Profile button (top right) -->
+<button class="profile-btn hidden" id="profileBtn" onclick="openProfileModal(false)">
+  ✦ My Profile
+</button>
+
+<!-- Profile Setup Modal -->
+<div class="modal-overlay hidden" id="profileModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeProfileModal()">✕</button>
+    <h2>Set up your profile</h2>
+    <p class="modal-sub">This helps Sorceror tailor search results and outreach messages to you.</p>
+    <div class="form-group">
+      <label>Your name</label>
+      <input id="pName" type="text" placeholder="e.g. Manvi Singh" />
+    </div>
+    <div class="form-group">
+      <label>Your company</label>
+      <input id="pCompany" type="text" placeholder="e.g. Acme Inc" />
+    </div>
+    <div class="form-group">
+      <label>Your role</label>
+      <input id="pRole" type="text" placeholder="e.g. Head of Recruiting" />
+    </div>
+    <div class="form-group">
+      <label>School / background</label>
+      <input id="pSchool" type="text" placeholder="e.g. UC Berkeley" />
+    </div>
+    <div class="form-group">
+      <label>Your location</label>
+      <input id="pLocation" type="text" placeholder="e.g. San Francisco, CA" />
+    </div>
+    <div class="form-group">
+      <label>What you're looking for / why you're reaching out</label>
+      <textarea id="pHiring" placeholder="e.g. I'm hiring senior engineers for our AI team and looking for Berkeley alumni with ML experience"></textarea>
+    </div>
+    <p class="storage-notice">⚠ Your profile is saved in this browser only. It will be lost if you clear your browser data or site storage.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary hidden" id="profileCancelBtn" onclick="closeProfileModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generated Message Modal -->
+<div class="modal-overlay hidden" id="messageModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeMessageModal()">✕</button>
+    <h2 id="messageModalTitle">Outreach message</h2>
+    <p class="modal-sub">Edit as needed, then copy and send on LinkedIn.</p>
+    <textarea class="message-textarea" id="messageText"></textarea>
+    <div class="modal-actions" style="justify-content: space-between; align-items: center;">
+      <span class="copy-confirm" id="copyConfirm">Copied!</span>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-secondary" onclick="closeMessageModal()">Close</button>
+        <button class="btn-primary" onclick="copyMessage()">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="hero">
   <div class="logo-wrap">
@@ -387,7 +628,7 @@
 <div class="body">
   <div id="status" class="hidden status-wrap">
     <div class="magic-loader"></div>
-    <p>Scanning the web &amp; summoning candidates…</p>
+    <p>Grab a cup of water and take a break while I'm scanning the web and sourcing candidates…</p>
   </div>
 
   <div id="error" class="hidden"></div>
@@ -453,6 +694,57 @@
     window.addEventListener('resize', () => { resize(); initStars(); });
   })();
 
+  // ── Profile ──
+  function getProfile() {
+    try { return JSON.parse(localStorage.getItem('sorceror_profile')) || null; } catch { return null; }
+  }
+
+  function openProfileModal(isFirstTime) {
+    const profile = getProfile();
+    if (profile) {
+      document.getElementById('pName').value = profile.name || '';
+      document.getElementById('pCompany').value = profile.company || '';
+      document.getElementById('pRole').value = profile.role || '';
+      document.getElementById('pSchool').value = profile.school || '';
+      document.getElementById('pLocation').value = profile.location || '';
+      document.getElementById('pHiring').value = profile.hiring_context || '';
+    }
+    if (!isFirstTime) {
+      document.getElementById('profileCancelBtn').classList.remove('hidden');
+    } else {
+      document.getElementById('profileCancelBtn').classList.add('hidden');
+    }
+    show('profileModal');
+  }
+
+  function closeProfileModal() {
+    hide('profileModal');
+  }
+
+  function saveProfile() {
+    const profile = {
+      name: document.getElementById('pName').value.trim(),
+      company: document.getElementById('pCompany').value.trim(),
+      role: document.getElementById('pRole').value.trim(),
+      school: document.getElementById('pSchool').value.trim(),
+      location: document.getElementById('pLocation').value.trim(),
+      hiring_context: document.getElementById('pHiring').value.trim(),
+    };
+    if (!profile.name) { alert('Please enter your name.'); return; }
+    localStorage.setItem('sorceror_profile', JSON.stringify(profile));
+    hide('profileModal');
+    show('profileBtn');
+  }
+
+  // On load: show profile modal if no profile exists
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!getProfile()) {
+      openProfileModal(true);
+    } else {
+      show('profileBtn');
+    }
+  });
+
   // ── Search logic ──
   const queryInput = document.getElementById('query');
   queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
@@ -460,19 +752,23 @@
   function show(id) { document.getElementById(id).classList.remove('hidden'); }
   function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
+  let lastQuery = '';
+
   async function runSearch() {
     const query = queryInput.value.trim();
     if (!query) return;
+    lastQuery = query;
 
     document.getElementById('searchBtn').disabled = true;
     hide('results'); hide('error');
     show('status');
 
     try {
+      const profile = getProfile();
       const res = await fetch('/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, user_profile: profile }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
@@ -499,8 +795,10 @@
       return;
     }
 
+    const totalScore = candidates.reduce((sum, c) => sum + (c.fit_score || 0), 0);
+    const onr = Math.round((totalScore / (10 * candidates.length)) * 100);
     document.getElementById('resultCount').textContent =
-      `${candidates.length} candidate${candidates.length !== 1 ? 's' : ''} summoned`;
+      `${candidates.length} candidate${candidates.length !== 1 ? 's' : ''} summoned · Results Relevance ${onr}%`;
 
     candidates.forEach(c => {
       const score = c.fit_score;
@@ -523,6 +821,7 @@
 
       const card = document.createElement('div');
       card.className = 'card';
+      card.dataset.candidate = JSON.stringify(c);
       card.innerHTML = `
         <div class="card-left">
           <div class="card-name">${c.first_name} ${c.last_name}</div>
@@ -540,12 +839,58 @@
         <div class="card-right">
           <span class="score-badge ${scoreClass}">${score}/10</span>
           ${liBtn}
+          <button class="accept-btn" onclick="acceptCandidate(this)">✓ Accept</button>
         </div>
       `;
       container.appendChild(card);
     });
 
     show('results');
+  }
+
+  // ── Accept / message generation ──
+  async function acceptCandidate(btn) {
+    const card = btn.closest('.card');
+    const candidate = JSON.parse(card.dataset.candidate);
+    const profile = getProfile();
+
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    try {
+      const res = await fetch('/generate-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate, query: lastQuery, user_profile: profile }),
+      });
+      if (!res.ok) throw new Error('Failed to generate message');
+      const data = await res.json();
+      openMessageModal(`${candidate.first_name} ${candidate.last_name}`, data.message);
+    } catch (e) {
+      alert('Error generating message: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✓ Accept';
+    }
+  }
+
+  function openMessageModal(name, message) {
+    document.getElementById('messageModalTitle').textContent = `Message for ${name}`;
+    document.getElementById('messageText').value = message;
+    show('messageModal');
+  }
+
+  function closeMessageModal() {
+    hide('messageModal');
+  }
+
+  function copyMessage() {
+    const text = document.getElementById('messageText').value;
+    navigator.clipboard.writeText(text).then(() => {
+      const confirm = document.getElementById('copyConfirm');
+      confirm.classList.add('show');
+      setTimeout(() => confirm.classList.remove('show'), 2000);
+    });
   }
 
   function downloadCSV() {

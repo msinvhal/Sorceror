@@ -40,8 +40,24 @@ last_results: list[dict] = []
 
 # ---------- Pydantic models ----------
 
+class UserProfile(BaseModel):
+    name: str = ""
+    company: str = ""
+    role: str = ""
+    school: str = ""
+    location: str = ""
+    hiring_context: str = ""
+
+
 class SearchRequest(BaseModel):
     query: str
+    user_profile: UserProfile | None = None
+
+
+class MessageRequest(BaseModel):
+    candidate: dict
+    query: str
+    user_profile: UserProfile | None = None
 
 
 class Candidate(BaseModel):
@@ -87,12 +103,24 @@ def parse_json(text: str) -> any:
 
 # ---------- Pipeline steps ----------
 
-def parse_intent_and_queries(query: str) -> tuple[dict, list[str]]:
+def parse_intent_and_queries(query: str, user_profile: dict | None = None) -> tuple[dict, list[str]]:
     """Single LLM call: parse search intent AND generate 5 targeted queries."""
+    profile_context = ""
+    if user_profile:
+        profile_context = f"""
+Searcher profile (use to bias queries toward shared context):
+- Name: {user_profile.get('name', '')}
+- Company: {user_profile.get('company', '')}
+- Role: {user_profile.get('role', '')}
+- School: {user_profile.get('school', '')}
+- Location: {user_profile.get('location', '')}
+- Looking for: {user_profile.get('hiring_context', '')}
+"""
+
     prompt = f"""Analyze this people-search query and return a JSON object.
 
 Query: "{query}"
-
+{profile_context}
 Extract the key criteria from the query (company, role, school, location, etc.) and generate 5 highly targeted search queries to find real LinkedIn profiles matching ALL criteria.
 
 Return exactly this structure:
@@ -185,8 +213,8 @@ For each person, return a JSON array with:
 }}
 
 Critical rules:
-- Company is MANDATORY — skip anyone not at the target company
-- Beyond company, extract anyone who matches at least one other criteria (role OR education). The scoring step will rank them.
+- If the query names a specific company, only include people at that company. If no company is specified, extract anyone who matches the other criteria (role, education, location, domain).
+- Be INCLUSIVE — extract anyone who plausibly matches. The scoring step will rank and filter. Aim for at least 15 raw candidates so the final step can pick the best 10.
 - For results marked [LINKEDIN PROFILE]:
   * The link IS the linkedin_url — always set it
   * Parse "Full Name - Current Title at Current Company | LinkedIn" from the title
@@ -201,7 +229,7 @@ Critical rules:
     return raw[:30]  # enrich step will score and pick top 10
 
 
-def enrich_candidates(candidates: list[dict], query: str, intent: dict) -> list[dict]:
+def enrich_candidates(candidates: list[dict], query: str, intent: dict, user_profile: dict | None = None) -> list[dict]:
     """Single LLM call: score each candidate, write about, write why_relevant."""
     candidates_text = json.dumps(
         [{"name": f"{c['first_name']} {c['last_name']}", "role": c.get("role", ""),
@@ -210,10 +238,20 @@ def enrich_candidates(candidates: list[dict], query: str, intent: dict) -> list[
          for c in candidates],
         indent=2,
     )
+    profile_context = ""
+    if user_profile:
+        profile_context = f"""
+Searcher profile (boost candidates who share background with the searcher):
+- School: {user_profile.get('school', '')}
+- Company: {user_profile.get('company', '')}
+- Looking for: {user_profile.get('hiring_context', '')}
+"""
+
     prompt = f"""Evaluate these candidates against the search query and criteria.
 
 Query: "{query}"
 Criteria: {json.dumps(intent)}
+{profile_context}
 
 Candidates:
 {candidates_text}
@@ -268,8 +306,10 @@ async def search(req: SearchRequest):
     if not SERPER_API_KEY or SERPER_API_KEY == "your_serper_api_key_here":
         raise HTTPException(status_code=500, detail="SERPER_API_KEY not configured")
 
+    profile_dict = req.user_profile.model_dump() if req.user_profile else None
+
     # Step 1: parse intent + generate queries (1 LLM call)
-    intent, queries = parse_intent_and_queries(req.query)
+    intent, queries = parse_intent_and_queries(req.query, profile_dict)
 
     # Step 2: fetch results in parallel
     results = await fetch_results(queries)
@@ -284,10 +324,11 @@ async def search(req: SearchRequest):
         return SearchResponse(candidates=[], count=0)
 
     # Step 4: score + enrich all candidates (1 LLM call)
-    enriched = enrich_candidates(raw_candidates, req.query, intent)
+    enriched = enrich_candidates(raw_candidates, req.query, intent, profile_dict)
 
-    # Sort by score, return top 10
-    ranked = sorted(enriched, key=lambda c: c.get("fit_score", 1), reverse=True)[:10]
+    # Sort by score, drop below 4, cap at 10
+    ranked = sorted(enriched, key=lambda c: c.get("fit_score", 1), reverse=True)
+    ranked = [c for c in ranked if c.get("fit_score", 1) >= 4][:10]
     log.info("Final ranked candidates: %s", [(f"{c.get('first_name')} {c.get('last_name')}", c.get('fit_score')) for c in ranked])
 
     candidates = []
@@ -306,6 +347,40 @@ async def search(req: SearchRequest):
 
     last_results = [c.model_dump() for c in candidates]
     return SearchResponse(candidates=candidates, count=len(candidates))
+
+
+@app.post("/generate-message")
+async def generate_message(req: MessageRequest):
+    c = req.candidate
+    p = req.user_profile or UserProfile()
+    prompt = f"""Write a short, personalized LinkedIn DM from {p.name or 'the sender'} to {c.get('first_name', '')} {c.get('last_name', '')}.
+
+Sender profile:
+- Name: {p.name}
+- Role: {p.role} at {p.company}
+- School: {p.school}
+- Location: {p.location}
+- Why reaching out: {p.hiring_context}
+
+Recipient profile:
+- Name: {c.get('first_name', '')} {c.get('last_name', '')}
+- Role: {c.get('role', '')} at {c.get('company', '')}
+- Location: {c.get('location', '')}
+- Background: {c.get('about', '')}
+
+Original search context: "{req.query}"
+
+Write a LinkedIn DM that:
+- Opens with a genuine, specific hook (shared school, mutual background, or specific thing about their work) — NOT a generic opener
+- Is warm and human, not recruiter-speak
+- Mentions who the sender is and why they're reaching out in 1 sentence
+- Ends with a simple, low-pressure ask (quick chat, 15 min call)
+- Is 80-100 words total — short enough to actually get read
+
+Return only the message text, no subject line, no explanation."""
+
+    message = llm(prompt, "GENERATE_MESSAGE")
+    return {"message": message}
 
 
 @app.get("/export")
